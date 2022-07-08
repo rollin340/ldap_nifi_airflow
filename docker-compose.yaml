@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  openldap:
+    image: bitnami/openldap:2
+    container_name: openldap
+    volumes:
+      - ./ldap:/ldifs
+    ports:
+      - '1389:1389'
+      - '1636:1636'
+    environment:
+      - LDAP_PORT_NUMBER=1389
+      - LDAP_ROOT=dc=example,dc=org
+      - LDAP_ADMIN_USERNAME=admin
+      - LDAP_ADMIN_PASSWORD=adminpassword
+
+  ldapaccountmanager:
+    image: ldapaccountmanager/lam:stable
+    container_name: ldapaccountmanager
+    ports:
+    - '8080:80'
+    environment:
+      - LDAP_DOMAIN=example.org
+      - LDAP_BASE_DN=dc=example,dc=org
+      - LDAP_USERS_DN=ou=people,dc=example,dc=org
+      - LDAP_SERVER=ldap://openldap:1389
+      - ADMIN_USER=cn=admin,dc=example,dc=org
+      - LDAP_ADMIN_PASSWORD=adminpassword
+      - LAM_LANG=en_US
+      - LAM_PASSWORD=lam
+    links:
+      - openldap
+  
+  nifi:
+    image: apache/nifi:latest
+    container_name: nifi
+    ports:
+      - '8443:8443'
+    volumes:
+      - ./nifi/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
+      - ./nifi/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
+    environment:
+    - AUTH=ldap
+    - KEYSTORE_PATH=/opt/nifi/nifi-current/conf/keystore.jks
+    - KEYSTORE_TYPE=jks
+    - KEYSTORE_PASSWORD=ZZgvZrUBcGn3KE8C3Ny9xSRp3gSZM3hatYhCS83rFPk96Xcv2L
+    - TRUSTSTORE_PATH=/opt/nifi/nifi-current/conf/truststore.jks
+    - TRUSTSTORE_PASSWORD=wYpyy37LEbkxTeuhQ2WrvyWZAVpS2jwhj2EUCuAr24qr6DasR3
+    - TRUSTSTORE_TYPE=jks
+    - INITIAL_ADMIN_IDENTITY=cn=admin1,ou=people,dc=example,dc=org
+    - LDAP_AUTHENTICATION_STRATEGY=SIMPLE
+    - LDAP_MANAGER_DN=cn=admin1,ou=people,dc=example,dc=org
+    - LDAP_MANAGER_PASSWORD=password
+    - LDAP_USER_SEARCH_BASE=ou=people,dc=example,dc=org
+    - LDAP_USER_SEARCH_FILTER=cn={0}
+    - LDAP_IDENTITY_STRATEGY=USE_DN
+    - LDAP_URL=ldap://openldap:1389
+    links:
+      - openldap
