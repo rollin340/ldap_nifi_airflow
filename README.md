@@ -68,6 +68,9 @@ For the full steps on adding users, groups, and permissions, do refer to the [of
 ### "Insufficient Permissions" when loggin in to NiFi
 This means that the account eists, but has not been configured for any permissions within NiFi. Refer to the [first use section for NiFi](#first-use).
 
+### I can't create any processes, even ass the admin
+Right-click on the Nifi canvas and select 'Manage Access Policies'. From here, you will have to create policies, then add the users accordingly. The admin account has to do this even for their own access.
+
 ### How to configure local NiFi
 We will need to update the following files for NiFi if done locally:
 
