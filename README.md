@@ -67,3 +67,46 @@ For the full steps on adding users, groups, and permissions, do refer to the [of
 ## Misc & FAQ
 ### "Insufficient Permissions" when loggin in to NiFi
 This means that the account eists, but has not been configured for any permissions within NiFi. Refer to the [first use section for NiFi](#first-use).
+
+### How to configure local NiFi
+We will need to update the following files for NiFi if done locally:
+
+- ./conf/nifi.properties
+- ./conf/login-identity-providers.xml
+
+[Here is the official documentation](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#ldap_login_identity_provider), or if preferred, [a reference link that you may use.](https://pierrevillard.com/2017/01/24/integration-of-nifi-with-ldap/)
+
+#### nifi.properties
+    nifi.login.identity.provider.configuration.file=./conf/login-identity-providers.xml
+    nifi.security.user.login.identity.provider=ldap-provider
+
+#### login-identity-providers.xml
+    <provider>
+        <identifier>ldap-provider</identifier>
+        <class>org.apache.nifi.ldap.LdapProvider</class>
+        <property name="Authentication Strategy">SIMPLE</property>
+        <property name="Manager DN">cn=admin1,ou=people,dc=example,dc=org</property>
+        <property name="Manager Password">password</property>
+        <property name="TLS - Keystore"></property>
+        <property name="TLS - Keystore Password"></property>
+        <property name="TLS - Keystore Type"></property>
+        <property name="TLS - Truststore"></property>
+        <property name="TLS - Truststore Password"></property>
+        <property name="TLS - Truststore Type"></property>
+        <property name="TLS - Client Auth"></property>
+        <property name="TLS - Protocol"></property>
+        <property name="TLS - Shutdown Gracefully"></property>
+        <property name="Referral Strategy">FOLLOW</property>
+        <property name="Connect Timeout">10 secs</property>
+        <property name="Read Timeout">10 secs</property>
+        <property name="Url">ldap://openldap:1389</property>
+        <property name="User Search Base">ou=people,dc=example,dc=org</property>
+        <property name="User Search Filter">cn={0}</property>
+        <property name="Identity Strategy">USE_DN</property>
+        <property name="Authentication Expiration">12 hours</property>
+    </provider>
+
+Do change the above accordingly.
+
+#### New keystore/truststore
+You may refer to [the official documentation](https://nifi.apache.org/docs/nifi-docs/html/toolkit-guide.html), or you may also use [this link](https://pierrevillard.com/2016/11/29/apache-nifi-1-1-0-secured-cluster-setup/) for steps on how to use Nifi-Toolkit to produce them.
