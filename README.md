@@ -1,9 +1,9 @@
-# Local copy to test LDAP & NiFi
+# Local copy to test LDAP, NiFi, & Airflow
 
 ## Steps to run the project
 
 ### Setting up
-- Run `setup_airflow_permissions.sh` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers**
+- Run `setup_airflow_env.sh` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers**
 - Import the certificate `./nifi/nifi-cert.pem` to your browser. You can skip this step, but you will be required to click on the "Accept the risks and continue" button with every launch of NiFi.
 
 ### Run the containers
@@ -48,7 +48,7 @@ LDAP Administrator account is `cn=admin,dc-example,dc=org`, with the username `a
 
 All other users' passwords are set to `password`.
 
-### Testing
+### Testing if user accounts exist
 From any of a container within the project network, run the following:
 
 <code>ldapsearch -H ldap://openldap:1389 -x -b 'ou=people,dc=example,dc=org' -D 'cn=admin,dc=example,dc=org' -w adminpassword</code>
@@ -106,6 +106,12 @@ This means that the account exists, but has not been configured for any permissi
 ### I can't create any processes, even ass the admin
 This means that you have not yet added certain policies for the user. Note that this is required even for the administrator account, who by default does not have these permissions. Refer to the [NiFi details section for the steps required.](#giving-users-permissions-to-view-nifi-processes)
 
+### Your user has no roles and/or permissions! when logging into Airflow
+Airflow uses LDAP's 'memberOf' module to map permissions. Do ensure you have run the included script [as mentioned here](#enable-memberof-module-in-ldap-for-airflow), and try again.
+
+
+## Local configuration if not using Docker
+
 ### How to configure local NiFi
 We will need to update the following files for NiFi if done locally:
 
@@ -148,3 +154,103 @@ Do change the above accordingly.
 
 #### New keystore/truststore
 You may refer to [the official documentation](https://nifi.apache.org/docs/nifi-docs/html/toolkit-guide.html), or you may also use [this link](https://pierrevillard.com/2016/11/29/apache-nifi-1-1-0-secured-cluster-setup/) for steps on how to use Nifi-Toolkit to produce them.
+
+### How to configure local LDAP to enable the 'memberOf' module
+Firstly, run <code>ldapsearch -H ldapi:/// -Y EXTERNAL -b "cn=config" -LLL -Q "olcDatabase=*"</code> to find out the details of your HDB backend. Note that newer versions of OpenLDAP has moved to using MDB instead.
+
+Create a new .ldif file. For this example, we will be naming it `memberof_config.ldif`. Change the following highlighted portions to match the directory of the LDAP libraries, and the appropriate {X} for the HDB backend.
+
+`memberof_config.ldif`:
+<pre><code>
+    dn: cn=module{1},cn=config
+    cn: module{1}
+    objectClass: olcModuleList
+    olcModuleLoad: memberof
+    olcModulePath: <mark>/opt/bitnami/openldap/lib/openldap</mark>
+
+    dn: olcOverlay={0}memberof,olcDatabase=<mark>{2}hdb</mark>,cn=config
+    objectClass: olcConfig
+    objectClass: olcMemberOf
+    objectClass: olcOverlayConfig
+    objectClass: top
+    olcOverlay: memberof
+    olcMemberOfDangling: ignore
+    olcMemberOfRefInt: TRUE
+    olcMemberOfGroupOC: groupOfNames
+    olcMemberOfMemberAD: member
+    olcMemberOfMemberOfAD: memberOf
+</code></pre>
+
+Once created, add the module with <code>sudo ldapadd -Q -Y EXTERNAL -H ldapi:/// -f ./memberof_config.ldif</code>.
+
+Create another .ldif file to modify the entry. For this example, we will be naming it `refint1.ldif`. Check the loaded modules path to ensure that you are pointing to the corrent 'cn'. For example, in the bitnami/openldap image, they are found in `/bitnami/openldap/slapd.d/cn=config`.
+
+`refint1.ldif`:
+<pre><code>
+    dn: cn=<mark>module{1}{0}</mark>,cn=config
+    add: olcmoduleload
+    olcmoduleload: refint
+</code></pre>
+
+Once created, modify the module with <code>sudo ldapmodify -Q -Y EXTERNAL -H ldapi:/// -f ./refint1.ldif</code>.
+
+Create another .ldif file to modify the entry. For this example, we will be naming it `refint2.ldif`. Take note of the highlighted portion; if LDAP throws an error that 'manager' and/or 'owner'attribute types are undefined, remove them.
+
+`refint2.ldif`:
+<pre><code>
+    dn: olcOverlay={1}refint,olcDatabase={2}hdb,cn=config
+    objectClass: olcConfig
+    objectClass: olcOverlayConfig
+    objectClass: olcRefintConfig
+    objectClass: top
+    olcOverlay: {1}refint
+    olcRefintAttribute: memberof member <mark>manager owner</mark>
+</code></pre>
+
+Once created, add the module with <code>ldapadd -Q -Y EXTERNAL -H ldapi:/// -f /tmp/refint2.ldif</code>.
+
+From here, you can now add/modify/delete users/groups. Do note that a user must exist before being added to the group to enable the reverse mapping.
+
+Reference: https://blog.adimian.com/2014/10/15/how-to-enable-memberof-using-openldap/
+
+### How to configure Airflow
+Do not create a local account if using LDAP for authentication, and ensure that the [LDAP 'memberOf' module is activated](#how-to-configure-local-ldap-to-enable-the-memberof-module).
+
+Once that is done, you will have to update the `/opt/airflow/webserver_config.py` file. Do change the values as needed.
+
+`webserver_config.py`:
+<pre><code>
+    import os
+    from flask_appbuilder.security.manager import AUTH_LDAP
+
+    AUTH_TYPE = AUTH_LDAP
+    AUTH_LDAP_SERVER = '<mark>ldap://openldap:1389</mark>'
+    AUTH_LDAP_USE_TLS = False
+
+    AUTH_USER_REGISTRATION = True
+    AUTH_USER_REGISTRATION_ROLE = "Public"
+    AUTH_LDAP_FIRSTNAME_FIELD = "givenName"
+    AUTH_LDAP_LASTNAME_FIELD = "sn"
+    AUTH_LDAP_EMAIL_FIELD = "mail"
+
+    AUTH_LDAP_SEARCH = '<mark>ou=people,dc=example,dc=org</mark>'
+    AUTH_LDAP_UID_FIELD = "cn"
+
+    AUTH_LDAP_BIND_USER = '<mark>cn=admin,dc=example,dc=org</mark>'
+    AUTH_LDAP_BIND_PASSWORD = '<mark>adminpassword</mark>'
+
+    AUTH_ROLES_MAPPING = {
+        <mark>'cn=users,ou=groups,dc=example,dc=org': ['User'],
+        'cn=admins,ou=groups,dc=example,dc=org': ['Admin'],</mark>
+    }
+
+    AUTH_LDAP_GROUP_FIELD = "memberOf"
+
+    AUTH_ROLES_SYNC_AT_LOGIN = True
+    PERMANENT_SESSION_LIFETIME = 1800
+</code></pre>
+
+
+Official documentation reference: https://airflow.apache.org/docs/apache-airflow/1.10.1/security.html?highlight=ldap#ldap
+
+Alternate reference: https://www.notion.so/Airflow-with-LDAP-in-10-mins-cbcbe5690d3648f48ee7e8ca45cb755f
