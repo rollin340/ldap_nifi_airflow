@@ -1,0 +1,4 @@
+.env
+./dags/__pycache__
+./logs/scheduler/*
+./logs/dag_processor_manager/*

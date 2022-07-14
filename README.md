@@ -1,24 +1,34 @@
 # Local copy to test LDAP & NiFi
 
-## Setting up
-- Import the certificate `./nifi/nifi-cert.pem` to your browser. You can skip this step, but you will required to "Accept the risks and continue" with launch of NiFi.
+## Steps to run the project
 
-## Run the containers
-From the Terminal, at base directory, run `docker compose up`.
+### Setting up
+- Run `setup_airflow_permissions.sh` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers**
+- Import the certificate `./nifi/nifi-cert.pem` to your browser. You can skip this step, but you will be required to click on the "Accept the risks and continue" button with every launch of NiFi.
 
-### Docker images used
+### Run the containers
+On the Terminal from the project's root directory, run `docker compose up`.
+
+### Enable 'memberOf' module in LDAP for Airflow
+- To use Airflow, run `setup_ldap_memberof.sh`to enable LDAP to show "memberOf" details from each user. **This process recreates the initial LDAP tree, and should be done AFTER the container has started, but BEFORE new users/groups are created**
+
+## Docker images used
 - `bitnami/openldap`:`2`
-- `ldapaccountmanager/lam`:`stable`
+- `ldapaccountmanager/lam`:`stable` AND/OR `osixia/phpldapadmin`:`latest`
 - `apache/nifi`:`latest`
+- `postgres`:`13`
+- `redis`:`latest`
+- `apache/airflow`:`2.3.3`
 
 ## LDAP Details
+
 ### Org Tree
 <pre>
 ─── dc-example,dc=org
     │
     ├── ou=groups
     │   ├── cn=admins
-    │   ├── cn=users
+    │   └── cn=users
     │
     └── ou=users
         ├── cn=admin1
@@ -26,7 +36,13 @@ From the Terminal, at base directory, run `docker compose up`.
         └── cn=users2
 </pre>
 
-### Passwords
+### Viewing Backend Databases
+From the shell terminal, run <code>ldapsearch -H ldapi:/// -Y EXTERNAL -b "cn=config" -LLL -Q "olcDatabase=*"</code>
+
+### Enabling 'memberOf' module
+By default, the 'memberOf' attribute is not enabled. Since this is needed for Airflow, the module must be loaded, and the entire tree must be re-created. [Refer to the setting up process](#enable-memberof-module-in-ldap-for-airflow) to enable this feature.
+
+### LDAP Passwords
 
 LDAP Administrator account is `cn=admin,dc-example,dc=org`, with the username `admin` and the password `adminpassword`.
 
@@ -41,9 +57,18 @@ If successful, you should see the accounts above.
 
 
 ## Accessing the webpages
-### LDAP Account Manager:
-- http://localhost:8080
+
+### LDAP Managers
+There are 2 that are bundled. By default, both LAM and phpLDAPadmin are enabled. Comment/uncomment the services in the `docker-compose.yml` file according to your preferances.
+
+#### LDAP Account Manager:
+- http://localhost:8060
 - Username: `admin`
+- Password: `adminpassword`
+
+#### PHP LDAP Admin:
+- http://localhost:8061
+- Username: `cn=admin,dc=example,dc=org`
 - Password: `adminpassword`
 
 ### NiFi
@@ -51,7 +76,13 @@ If successful, you should see the accounts above.
 - Username: `<LDAP SID>`
 - Password: `<LDAP Password>`
 
-#### First use
+### Airflow
+- http://localhost:8080
+- Username: `<LDAP SID>`
+- Password: `<LDAP Password>`
+
+## NiFi details
+### Adding permissions for users to login
 Nifi has `admin1` set as the NiFi administrator. You are required to login as this account first to give rights to the other user accounts.
 
 Here are some quick steps on adding `user1` for read permissions:
@@ -64,12 +95,16 @@ Here are some quick steps on adding `user1` for read permissions:
 
 For the full steps on adding users, groups, and permissions, do refer to the [official NiFi documentiation](https://nifi.apache.org/docs/nifi-docs/html/administration-guide.html#config-users-access-policies).
 
+#### Giving users permissions to view NiFi processes
+Right-click on the Nifi canvas and select 'Manage Access Policies'. From here, you will have to create policies, then add the users accordingly. The admin account has to do this even for their own access.
+
+
 ## Misc & FAQ
-### "Insufficient Permissions" when loggin in to NiFi
-This means that the account eists, but has not been configured for any permissions within NiFi. Refer to the [first use section for NiFi](#first-use).
+### "Insufficient Permissions" when logging in to NiFi
+This means that the account exists, but has not been configured for any permissions within NiFi. Refer to the [NiFi details section for the steps required](#adding-permissions-for-users-to-login).
 
 ### I can't create any processes, even ass the admin
-Right-click on the Nifi canvas and select 'Manage Access Policies'. From here, you will have to create policies, then add the users accordingly. The admin account has to do this even for their own access.
+This means that you have not yet added certain policies for the user. Note that this is required even for the administrator account, who by default does not have these permissions. Refer to the [NiFi details section for the steps required.](#giving-users-permissions-to-view-nifi-processes)
 
 ### How to configure local NiFi
 We will need to update the following files for NiFi if done locally:
