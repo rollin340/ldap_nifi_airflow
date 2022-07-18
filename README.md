@@ -3,8 +3,11 @@
 ## Steps to run the project
 
 ### Setting up
-- Run `setup_airflow_env.sh` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers**
+- Run `setup_airflow_env.sh` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers.** You only need to re-run this part if you are running a fresh clone of this repository.
 - Import the certificate `./nifi/nifi-cert.pem` to your browser. You can skip this step, but you will be required to click on the "Accept the risks and continue" button with every launch of NiFi.
+
+### Set NiFi as a single instance, or as a cluster
+By default, this project runs NiFi as a cluster of 5 containers. If you would like to run a single instance instead, edit the `docker-compose.yml` file, uncomment the `nifi` service, and comment out the `5 clustered nifi instances`, and the `nginx service`.
 
 ### Run the containers
 On the Terminal from the project's root directory, run `docker compose up`.
@@ -15,6 +18,7 @@ On the Terminal from the project's root directory, run `docker compose up`.
 ## Docker images used
 - `bitnami/openldap`:`2`
 - `ldapaccountmanager/lam`:`stable` AND/OR `osixia/phpldapadmin`:`latest`
+- `bitnami/zookeeper`:`latest`
 - `apache/nifi`:`latest`
 - `postgres`:`13`
 - `redis`:`latest`
@@ -42,7 +46,7 @@ From the shell terminal, run <code>ldapsearch -H ldapi:/// -Y EXTERNAL -b "cn=co
 ### Enabling 'memberOf' module
 By default, the 'memberOf' attribute is not enabled. Since this is needed for Airflow, the module must be loaded, and the entire tree must be re-created. [Refer to the setting up process](#enable-memberof-module-in-ldap-for-airflow) to enable this feature.
 
-### LDAP Passwords
+### Defauilt LDAP Passwords
 
 LDAP Administrator account is `cn=admin,dc-example,dc=org`, with the username `admin` and the password `adminpassword`.
 
@@ -51,7 +55,7 @@ All other users' passwords are set to `password`.
 ### Testing if user accounts exist
 From any of a container within the project network, run the following:
 
-<code>ldapsearch -H ldap://openldap:1389 -x -b 'ou=people,dc=example,dc=org' -D 'cn=admin,dc=example,dc=org' -w adminpassword</code>
+    ldapsearch -H ldap://openldap:1389 -x -b 'ou=people,dc=example,dc=org' -D 'cn=admin,dc=example,dc=org' -w adminpassword
 
 If successful, you should see the accounts above.
 
@@ -98,21 +102,29 @@ For the full steps on adding users, groups, and permissions, do refer to the [of
 #### Giving users permissions to view NiFi processes
 Right-click on the Nifi canvas and select 'Manage Access Policies'. From here, you will have to create policies, then add the users accordingly. The admin account has to do this even for their own access.
 
+### Cluster settings
+By default, this repository uses a cluster of 5 nodes. If the number of nodes desired are to be updated, please ensure to do the following.
 
-## Misc & FAQ
-### "Insufficient Permissions" when logging in to NiFi
-This means that the account exists, but has not been configured for any permissions within NiFi. Refer to the [NiFi details section for the steps required](#adding-permissions-for-users-to-login).
+#### Reducing the amount of nodes
 
-### I can't create any processes, even ass the admin
-This means that you have not yet added certain policies for the user. Note that this is required even for the administrator account, who by default does not have these permissions. Refer to the [NiFi details section for the steps required.](#giving-users-permissions-to-view-nifi-processes)
+1. Comment out the unused nodes in the `docker-compose.yml` file.
+2. Comment out the unused nodes in the `http/upstream` section in the `./nginx/nginx.conf`file.
 
-### Your user has no roles and/or permissions! when logging into Airflow
-Airflow uses LDAP's 'memberOf' module to map permissions. Do ensure you have run the included script [as mentioned here](#enable-memberof-module-in-ldap-for-airflow), and try again.
+#### Increasing the amount of nodes
 
+1. Refer to this [section](#new-keystoretruststore) to create new keystore/truststore files for all nodes.
+2. Copy the folders/files in the same manner of this project; `./nifi/cluster/nifi_X` where 'X' is the node number.
+3. Update the `http/upstream` section in the `./nginx/nginx.conf`file to include the new nodes.
+4. Update `,/nifi/cluster/authorizers.xml`:
+    - Under the `userGroupProvider` section, add new `Initial User Identity` records as needed.
+    - Under the `accessPolicyProvider` section, add new `Node Identity` records as needed.
+5. Update the `docker-compose.yml` file by adding the new nodes with the appropriate `container_name`, `hostname`, and `volumes`.
 
 ## Local configuration if not using Docker
 
-### How to configure local NiFi
+Please note that this part may not be complete/accurate, and should be used with caution.
+
+### How to configure a single local NiFi instance
 We will need to update the following files for NiFi if done locally:
 
 - ./conf/nifi.properties
@@ -153,7 +165,19 @@ We will need to update the following files for NiFi if done locally:
 Do change the above accordingly.
 
 #### New keystore/truststore
-You may refer to [the official documentation](https://nifi.apache.org/docs/nifi-docs/html/toolkit-guide.html), or you may also use [this link](https://pierrevillard.com/2016/11/29/apache-nifi-1-1-0-secured-cluster-setup/) for steps on how to use Nifi-Toolkit to produce them.
+You may refer to [the official documentation](https://nifi.apache.org/docs/nifi-docs/html/toolkit-guide.html#standalone), or you may also use [this link](https://pierrevillard.com/2016/11/29/apache-nifi-1-1-0-secured-cluster-setup/) for steps on how to use Nifi-Toolkit to produce them.
+
+The following code was used for this project when NiFi is running a single instance:
+
+    /opt/nifi/nifi-toolkit-current/bin/tls-toolkit.sh standalone --hostnames 'localhost' --clientCertDn 'CN=admin,OU=NiFi' --subjectAlternativeNames 'localhost,0.0.0.0,nifiserver1,nifiserver2,nifiserver3,nifiserver4,nifiserver5' --keyStorePassword ZZgvZrUBcGn3KE8C3Ny9xSRp3gSZM3hatYhCS83rFPk96Xcv2L --trustStorePassword wYpyy37LEbkxTeuhQ2WrvyWZAVpS2jwhj2EUCuAr24qr6DasR3 --outputDirectory /tmp/nifi_certs
+
+The following code was used for this project when NiFi is running as a cluster of 5 nodes:
+
+<pre><code>
+/opt/nifi/nifi-toolkit-current/bin/tls-toolkit.sh standalone --hostnames 'nifi_<mark>[1-5]</mark>' --clientCertDn 'CN=admin,OU=NiFi' --subjectAlternativeNames 'localhost,0.0.0.0,nifiserver1,nifiserver2,nifiserver3,nifiserver4,nifiserver5' --keyStorePassword ZZgvZrUBcGn3KE8C3Ny9xSRp3gSZM3hatYhCS83rFPk96Xcv2L --trustStorePassword wYpyy37LEbkxTeuhQ2WrvyWZAVpS2jwhj2EUCuAr24qr6DasR3 --outputDirectory /tmp/nifi_certs
+</code></pre>
+
+Note that the `hostname` uses a pattern to automatically create the required files for 5 instances. Do change this part as desired.
 
 ### How to configure local LDAP to enable the 'memberOf' module
 Firstly, run <code>ldapsearch -H ldapi:/// -Y EXTERNAL -b "cn=config" -LLL -Q "olcDatabase=*"</code> to find out the details of your HDB backend. Note that newer versions of OpenLDAP has moved to using MDB instead.
@@ -254,3 +278,19 @@ Once that is done, you will have to update the `/opt/airflow/webserver_config.py
 Official documentation reference: https://airflow.apache.org/docs/apache-airflow/1.10.1/security.html?highlight=ldap#ldap
 
 Alternate reference: https://www.notion.so/Airflow-with-LDAP-in-10-mins-cbcbe5690d3648f48ee7e8ca45cb755f
+
+## Misc & FAQ
+### "Insufficient Permissions" when logging in to NiFi
+This means that the account exists, but has not been configured for any permissions within NiFi. Refer to the [NiFi details section for the steps required](#adding-permissions-for-users-to-login).
+
+### I can't create any processes, even as the admin
+This means that you have not yet added certain policies for the user. Note that this is required even for the administrator account, who by default does not have these permissions. Refer to the [NiFi details section for the steps required.](#giving-users-permissions-to-view-nifi-processes)
+
+### Your user has no roles and/or permissions! when logging into Airflow
+Airflow uses LDAP's 'memberOf' module to map permissions. Do ensure you have run the included script [as mentioned here](#enable-memberof-module-in-ldap-for-airflow), and try again.
+
+### Firefox won't connect with the error "MOZILLA_PKIX_ERROR_CA_CERT_USED_AS_END_ENTITY"
+From Firefox, go to Settings > Privacy & Security > View Certificates. On the 'Servers' tab, add 'https://localhost:8443'. Then on the 'Authorities' tab, import the certificate provided/created.
+
+### The Flow Controller is initializing the Data Flow
+Wait for approximately 1 minute for the NiFi cluster to be ready.
