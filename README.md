@@ -28,7 +28,7 @@ On the Terminal from the project's root directory, run `docker compose up`.
 
 ### Org Tree
 <pre>
-─── dc-example,dc=org
+─── dc=example,dc=org
     │
     ├── ou=groups
     │   ├── cn=admins
@@ -46,11 +46,23 @@ From the shell terminal, run <code>ldapsearch -H ldapi:/// -Y EXTERNAL -b "cn=co
 ### Enabling 'memberOf' module
 By default, the 'memberOf' attribute is not enabled. Since this is needed for Airflow, the module must be loaded, and the entire tree must be re-created. [Refer to the setting up process](#enable-memberof-module-in-ldap-for-airflow) to enable this feature.
 
-### Defauilt LDAP Passwords
+### Default LDAP Passwords for initial setup
 
-LDAP Administrator account is `cn=admin,dc-example,dc=org`, with the username `admin` and the password `adminpassword`.
+LDAP Administrator account is `cn=admin,dc=example,dc=org`, with the username `admin` and the password `adminpassword`.
 
 All other users' passwords are set to `password`.
+
+### Creating new groups
+
+From the preferred LDAP manager, create a new child object under `ou=groups,dc=example,dc=org` of the `groupOfNames` object class.
+
+Fill in the `cn` with the group's name, and add the members accordingly.
+
+### Creating new accounts
+From the preferred LDAP manager, create a new child object under `ou=people,dc=example,dc=org` of the `person` object class.
+
+Fill in the `cn` and `sn` with the user's login ID, and fill in the `userPassword` attribute.
+
 
 ### Testing if user accounts exist
 From any of a container within the project network, run the following:
@@ -59,6 +71,9 @@ From any of a container within the project network, run the following:
 
 If successful, you should see the accounts above.
 
+To view what groups each user is a member of, run the following:
+
+    ldapsearch -H ldap://openldap:1389 -x -b 'ou=people,dc=example,dc=org' -D 'cn=admin,dc=example,dc=org' -w adminpassword memberOf    
 
 ## Accessing the webpages
 
@@ -283,7 +298,7 @@ Alternate reference: https://www.notion.so/Airflow-with-LDAP-in-10-mins-cbcbe569
 ### "Insufficient Permissions" when logging in to NiFi
 This means that the account exists, but has not been configured for any permissions within NiFi. Refer to the [NiFi details section for the steps required](#adding-permissions-for-users-to-login).
 
-### I can't create any processes, even as the admin
+### I can't create any NiFi processes, even as the admin
 This means that you have not yet added certain policies for the user. Note that this is required even for the administrator account, who by default does not have these permissions. Refer to the [NiFi details section for the steps required.](#giving-users-permissions-to-view-nifi-processes)
 
 ### Your user has no roles and/or permissions! when logging into Airflow
