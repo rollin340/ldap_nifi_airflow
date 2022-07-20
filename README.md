@@ -135,6 +135,21 @@ By default, this repository uses a cluster of 5 nodes. If the number of nodes de
     - Under the `accessPolicyProvider` section, add new `Node Identity` records as needed.
 5. Update the `docker-compose.yml` file by adding the new nodes with the appropriate `container_name`, `hostname`, and `volumes`.
 
+## Airflow details
+
+The default behavior of this configuration maps all users under the "admins" group with administrative perissions, and all users under "users" to the default Airflow "User" permissions.
+
+Note that the default "User" permissions givess acces to **ALL** Dags.
+
+### Adding new default profiles for users/groups to be mapped to
+1. As an administrator, under the "security" tab, lick on "List Roles".
+2. Click on the checkbox for "User", then hover over the "Actions" button and click on "Copy Role".
+3. Edit the name, then delete "can read on DAGS", "can edit on DAGS", and "can delete on DAGS".
+4. From the same field, type ":\<Tag to allow\>" to drill down the options, and add the permissions removed from step 3 but limited only to the tag.
+5. Update the `AUTH_ROLES_MAPPING` section of `./airflow/webserver_config.py`, add make the desired changes.
+    - 'cn=\<Group name\>,ou=groups,dc=example,dc=org': ['\<Role\>']
+    - Multiple roles can be mapped as a comma delimited list
+
 ## Local configuration if not using Docker
 
 Please note that this part may not be complete/accurate, and should be used with caution.
