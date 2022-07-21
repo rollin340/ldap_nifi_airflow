@@ -3,7 +3,7 @@
 ## Steps to run the project
 
 ### Setting up
-- Run `setup_airflow_env.sh` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers.** You only need to re-run this part if you are running a fresh clone of this repository.
+- Run `setup_airflow_env.(sh/bat)` to create the `.env` file to ensure that files written by Airflow belongs to the host user. **Run this BEFORE you launch the containers.** You only need to re-run this part if you are running a fresh clone of this repository.
 - Import the certificate `./nifi/nifi-cert.pem` to your browser. You can skip this step, but you will be required to click on the "Accept the risks and continue" button with every launch of NiFi.
 
 ### Set NiFi as a single instance, or as a cluster
