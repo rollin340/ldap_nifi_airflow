@@ -95,7 +95,7 @@ services:
     container_name: openldap
     volumes:
       - ./ldap/initial_users.ldif:/ldifs/initial_users.ldif
-      - ./ldap/enable_memberof:/tmp
+      - ./ldap/enable_memberof:/tmp/enable_memberof
       - openldap-data-volume:/bitnami/openldap/ # For data persistence
     ports:
       - '1389:1389'
@@ -143,64 +143,64 @@ services:
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
 
-  nifi:
-    <<: *nifi-single
+  # nifi:
+  #   <<: *nifi-single
 
-  # nifi_1:
-  #   <<: *nifi-cluster
-  #   container_name: nifi_1
-  #   hostname: nifiserver1
-  #   volumes:
-  #     - ./nifi/cluster/nifi_1/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
-  #     - ./nifi/cluster/nifi_1/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
+  nifi_1:
+    <<: *nifi-cluster
+    container_name: nifi_1
+    hostname: nifiserver1
+    volumes:
+      - ./nifi/cluster/nifi_1/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
+      - ./nifi/cluster/nifi_1/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
 
-  # nifi_2:
-  #   <<: *nifi-cluster
-  #   container_name: nifi_2
-  #   hostname: nifiserver2
-  #   volumes:
-  #     - ./nifi/cluster/nifi_2/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
-  #     - ./nifi/cluster/nifi_2/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
+  nifi_2:
+    <<: *nifi-cluster
+    container_name: nifi_2
+    hostname: nifiserver2
+    volumes:
+      - ./nifi/cluster/nifi_2/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
+      - ./nifi/cluster/nifi_2/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
   
-  # nifi_3:
-  #   <<: *nifi-cluster
-  #   container_name: nifi_3
-  #   hostname: nifiserver3
-  #   volumes:
-  #     - ./nifi/cluster/nifi_3/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
-  #     - ./nifi/cluster/nifi_3/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
+  nifi_3:
+    <<: *nifi-cluster
+    container_name: nifi_3
+    hostname: nifiserver3
+    volumes:
+      - ./nifi/cluster/nifi_3/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
+      - ./nifi/cluster/nifi_3/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
   
-  # nifi_4:
-  #   <<: *nifi-cluster
-  #   container_name: nifi_4
-  #   hostname: nifiserver4
-  #   volumes:
-  #     - ./nifi/cluster/nifi_4/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
-  #     - ./nifi/cluster/nifi_4/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
+  nifi_4:
+    <<: *nifi-cluster
+    container_name: nifi_4
+    hostname: nifiserver4
+    volumes:
+      - ./nifi/cluster/nifi_4/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
+      - ./nifi/cluster/nifi_4/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
   
-  # nifi_5:
-  #   <<: *nifi-cluster
-  #   container_name: nifi_5
-  #   hostname: nifiserver5
-  #   volumes:
-  #     - ./nifi/cluster/nifi_5/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
-  #     - ./nifi/cluster/nifi_5/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
+  nifi_5:
+    <<: *nifi-cluster
+    container_name: nifi_5
+    hostname: nifiserver5
+    volumes:
+      - ./nifi/cluster/nifi_5/keystore.jks:/opt/nifi/nifi-current/conf/keystore.jks
+      - ./nifi/cluster/nifi_5/truststore.jks:/opt/nifi/nifi-current/conf/truststore.jks
   
-  # nginx:
-  #   image: nginx:latest
-  #   container_name: nginx
-  #   ports:
-  #       - '8443:8443'
-  #   volumes:
-  #       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #       - ./nifi/cluster/nifi-cert.pem:/etc/nginx/ssl/nifi-cert.pem:ro
-  #       - ./nifi/cluster/nifi-key.key:/etc/nginx/ssl/nifi-key.key:ro
-  #   depends_on:
-  #       - nifi_1
-  #       - nifi_2
-  #       - nifi_3
-  #       - nifi_4
-  #       - nifi_5
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+        - '8443:8443'
+    volumes:
+        - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+        - ./nifi/cluster/nifi-cert.pem:/etc/nginx/ssl/nifi-cert.pem:ro
+        - ./nifi/cluster/nifi-key.key:/etc/nginx/ssl/nifi-key.key:ro
+    depends_on:
+        - nifi_1
+        - nifi_2
+        - nifi_3
+        - nifi_4
+        - nifi_5
   
   postgres:
     image: postgres:13

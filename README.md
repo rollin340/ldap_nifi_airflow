@@ -13,7 +13,7 @@ By default, this project runs NiFi as a cluster of 5 containers. If you would li
 On the Terminal from the project's root directory, run `docker compose up`.
 
 ### Enable 'memberOf' module in LDAP for Airflow
-- To use Airflow, run `setup_ldap_memberof.sh`to enable LDAP to show "memberOf" details from each user. **This process recreates the initial LDAP tree, and should be done AFTER the container has started, but BEFORE new users/groups are created**
+- To use Airflow, run `setup_ldap_memberof.(sh/bat)`to enable LDAP to show "memberOf" details from each user. **This process recreates the initial LDAP tree, and should be done AFTER the container has started, but BEFORE new users/groups are created**
 
 ## Docker images used
 - `bitnami/openldap`:`2`
@@ -73,7 +73,7 @@ If successful, you should see the accounts above.
 
 To view what groups each user is a member of, run the following:
 
-    ldapsearch -H ldap://openldap:1389 -x -b 'ou=people,dc=example,dc=org' -D 'cn=admin,dc=example,dc=org' -w adminpassword memberOf    
+    ldapsearch -H ldap://openldap:1389 -x -b 'ou=people,dc=example,dc=org' -D 'cn=admin,dc=example,dc=org' -w adminpassword memberOf
 
 ## Accessing the webpages
 
